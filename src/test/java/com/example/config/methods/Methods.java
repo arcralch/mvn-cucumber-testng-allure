@@ -11,6 +11,9 @@ import org.openqa.selenium.support.PageFactory;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
+import com.example.config.utils.PrintOutText;
+
+import io.qameta.allure.Allure;
 import io.qameta.allure.AllureLifecycle;
 
 public abstract class Methods {
@@ -22,6 +25,8 @@ public abstract class Methods {
 
     protected WebDriver driver;
     protected AllureLifecycle allureLifecycle;
+
+    private static PrintOutText printOutText = new PrintOutText();
 
     public Methods(WebDriver driver) {
         this.MAX_TIME_WAIT = Integer.parseInt(System.getProperty("MAX_TIME_WAIT"));
@@ -89,7 +94,6 @@ public abstract class Methods {
         clickForElement(element);
         clearForElement(element);
         element.sendKeys(str);
-        element.submit();
     }
 
     //Obtener el texto de WebElement
@@ -111,36 +115,46 @@ public abstract class Methods {
         element.click();
     }
 
+    //Metodo para imprimir texto consola
+    protected void printTextOut(String str, String color){
+        printOutText.getOutPrintColors(str, color);
+    }
+
     //Permite convertir todos los WebElements en el tipo que requiera ser entendido por Selenium
-    protected By createBy(String typeSelector, String query) throws Exception {
+    protected By createBy(String typeSelector, String query){
         By byObject = null;
-        switch (typeSelector) {
-            case "cssSelector":
-                byObject = new By.ByCssSelector(query);
-                break;
-            case "xpath":
-                byObject = new By.ByXPath(query);
-                break;
-            case "id":
-                byObject = new By.ById(query);
-                break;
-            case "className":
-                byObject = new By.ByClassName(query);
-                break;
-            case "name":
-                byObject = new By.ByName(query);
-                break;
-            case "linkText":
-                byObject = new By.ByLinkText(query);
-                break;
-            case "partialLinkText":
-                byObject = new By.ByPartialLinkText(query);
-                break;
-            case "tagName":
-                byObject = new By.ByTagName(query);
-                break;
-            default:
-                throw new Exception("Option is not available");
+        try{
+            switch (typeSelector) {
+                case "cssSelector":
+                    byObject = new By.ByCssSelector(query);
+                    break;
+                case "xpath":
+                    byObject = new By.ByXPath(query);
+                    break;
+                case "id":
+                    byObject = new By.ById(query);
+                    break;
+                case "className":
+                    byObject = new By.ByClassName(query);
+                    break;
+                case "name":
+                    byObject = new By.ByName(query);
+                    break;
+                case "linkText":
+                    byObject = new By.ByLinkText(query);
+                    break;
+                case "partialLinkText":
+                    byObject = new By.ByPartialLinkText(query);
+                    break;
+                case "tagName":
+                    byObject = new By.ByTagName(query);
+                    break;
+                default:
+                    throw new Exception("Option is not available");
+            }
+        }catch(Exception e){
+            Allure.addAttachment("Error elemento", query);
+            printTextOut("Error elemento: "+query, "red");
         }
         return byObject;
     }

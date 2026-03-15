@@ -11,7 +11,7 @@ public class PrintOutText {
     public static final String ANSI_WHITE = "\u001B[37m";
 
     //Metodo impresion a los colores detallados para diferentes tipos de mensajes salidas
-    public static void getOutPrintColors(String str, String colors){
+    public void getOutPrintColors(String str, String colors){
         switch(colors.toUpperCase()){
             case "BLUE": //Info text print color
                 PrintOutText.getPrintText(ANSI_BLUE+str);
