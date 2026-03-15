@@ -31,7 +31,7 @@ public class LoginPageSteps extends Steps {
 
     @Given("User is on HRMLogin page")
     public void loginTest() {
-        this.web = driver.getHomePage().getUrl(System.getProperty("WEB_URL"));
+        this.web = driver.getHomePage().init().getUrl(System.getProperty("WEB_URL"));
         driver.takeScreenshot();
     }
 
