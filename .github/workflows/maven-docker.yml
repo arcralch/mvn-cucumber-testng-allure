@@ -2,148 +2,45 @@
 # Ejecuta TODAS las pruebas dentro del contenedor Docker.
 # La imagen ya incluye: Java 11, Maven, Chrome, Firefox y GeckoDriver.
 
-name: Java CI con Maven + Docker
+name: Selenium Docker CI
 
 on:
   push:
     branches: [ "main" ]
-
-# Forzar Node.js 24 en las GitHub Actions
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
-  test:
+  docker-tests:
     runs-on: ubuntu-latest
-    name: test (${{ matrix.browser }})
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - browser: CHROME
-            browser_name: Google Chrome
-          - browser: FIREFOX
-            browser_name: Mozilla Firefox
 
     steps:
-    # ─────────────────────────────────────────────────────────
-    # 1. Checkout del código fuente
-    # ─────────────────────────────────────────────────────────
-    - name: Checkout del repositorio
-      uses: actions/checkout@v4.2.2
+    # 1. Descargar el repo (para obtener el Dockerfile)
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-    # ─────────────────────────────────────────────────────────
-    # 2. Cache de imagen Docker usando BuildKit
-    # ─────────────────────────────────────────────────────────
-    - name: Configurar Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Cache de capas Docker
-      uses: actions/cache@v4.2.3
-      with:
-        path: /tmp/.buildx-cache
-        key: ${{ runner.os }}-buildx-${{ hashFiles('Dockerfile', 'pom.xml') }}
-        restore-keys: ${{ runner.os }}-buildx-
-
-    # ─────────────────────────────────────────────────────────
-    # 3. Construir la imagen Docker
-    #    La imagen incluye: Java 11, Maven, Chrome, Firefox y GeckoDriver.
-    # ─────────────────────────────────────────────────────────
-    - name: Construir imagen Docker
+    # 2. Construir imagen Docker
+    - name: Build Docker image
       run: |
-        echo "=== Construyendo imagen con Chrome, Firefox y WebDrivers ==="
-        docker buildx build \
-          --tag selenium-suite:${{ matrix.browser }} \
-          --cache-from type=local,src=/tmp/.buildx-cache \
-          --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max \
-          --load \
-          .
-        # Rotar cache para evitar crecimiento infinito
-        rm -rf /tmp/.buildx-cache
-        mv /tmp/.buildx-cache-new /tmp/.buildx-cache 2>/dev/null || true
-        echo "=== Imagen construida ==="
-        docker images selenium-suite:${{ matrix.browser }}
+        docker build -t selenium-tests .
 
-    # ─────────────────────────────────────────────────────────
-    # 4. Preparar directorio de resultados en el runner
-    #    Necesario para que el volumen de Docker funcione correctamente
-    # ─────────────────────────────────────────────────────────
-    - name: Crear directorio de resultados
-      run: mkdir -p target/allure-results target/surefire-reports
-
-    # ─────────────────────────────────────────────────────────
-    # 5. Ejecutar pruebas DENTRO del contenedor Docker
-    #    - Inicia Xvfb (display virtual) para Chrome/Firefox
-    #    - Monta ./target como volumen → resultados disponibles en el runner
-    #    - --user root → evita problemas de permisos al escribir en el volumen
-    # ─────────────────────────────────────────────────────────
-    - name: Ejecutar Pruebas (${{ matrix.browser_name }}) en Docker
+    # 3. Ejecutar pruebas dentro del contenedor
+    - name: Run tests
       run: |
-        docker run --rm \
-          --user root \
-          --shm-size=2gb \
-          --volume "$(pwd)/target:/app/target" \
-          --env DISPLAY=:99 \
-          selenium-suite:${{ matrix.browser }} \
-          bash -c "
-            Xvfb :99 -screen 0 1280x720x24 &
-            sleep 1
-            echo '=== Entorno de ejecución ==='
-            java -version
-            mvn --version
-            google-chrome --version || true
-            firefox --version || true
-            echo '=== Iniciando pruebas con ${{ matrix.browser }} ==='
-            mvn test -e \
-              -DHEADLESS=true \
-              -DVIDEO=false \
-              -DBROWSER=${{ matrix.browser }} \
-              -DENV=qa
-          "
+        docker run --rm selenium-tests
 
-    # ─────────────────────────────────────────────────────────
-    # 6. Subir reportes Surefire (siempre, para diagnóstico)
-    # ─────────────────────────────────────────────────────────
-    - name: Subir reportes Surefire (${{ matrix.browser_name }})
+    # 4. Guardar resultados Allure
+    - name: Upload Allure results
       if: always()
-      uses: actions/upload-artifact@v4.6.2
+      uses: actions/upload-artifact@v4
       with:
-        name: surefire-reports-${{ matrix.browser }}
-        path: target/surefire-reports
-        if-no-files-found: warn
-        retention-days: 7
+        name: allure-results
+        path: /home/runner/work/**/target/allure-results
 
-    # ─────────────────────────────────────────────────────────
-    # 7. Subir resultados de Allure
-    # ─────────────────────────────────────────────────────────
-    - name: Subir resultados de Allure (${{ matrix.browser_name }})
+    # 5. Guardar reportes TestNG (opcional)
+    - name: Upload TestNG reports
       if: always()
-      uses: actions/upload-artifact@v4.6.2
+      uses: actions/upload-artifact@v4
       with:
-        name: allure-results-${{ matrix.browser }}
-        path: target/allure-results
-        if-no-files-found: warn
-        retention-days: 7
-
-    # ─────────────────────────────────────────────────────────
-    # 8. Generar Reporte Allure (en el runner)
-    # ─────────────────────────────────────────────────────────
-    - name: Configurar JDK para Allure Report
-      if: always()
-      uses: actions/setup-java@v4.7.0
-      with:
-        java-version: '11'
-        distribution: 'temurin'
-        cache: maven
-
-    - name: Generar Reporte Allure (${{ matrix.browser_name }})
-      if: always()
-      run: mvn allure:report -q || true
-
-    # ─────────────────────────────────────────────────────────
-    # 9. Limpiar imagen Docker del runner
-    # ─────────────────────────────────────────────────────────
-    - name: Limpiar imagen Docker
-      if: always()
-      run: docker rmi selenium-suite:${{ matrix.browser }} || true
+        name: testng-reports
+        path: /home/runner/work/**/target/surefire-reports
