@@ -25,6 +25,12 @@
     <maven.surefire.plugin.version>3.2.2</maven.surefire.plugin.version>
     <maven.compiler.source.version>11</maven.compiler.source.version>
     <maven.compiler.target.version>11</maven.compiler.target.version>
+    
+    <!-- Allure Environment Properties -->
+    <allure.env.project>Cucumber-TestNG-Framework</allure.env.project>
+    <allure.env.browser>Chrome-Firefox</allure.env.browser>
+    <allure.env.env>QA</allure.env.env>
+    <allure.env.user>QA Automation Engineer</allure.env.user>
   </properties>
  
   <dependencies>
@@ -75,6 +81,12 @@
         <artifactId>selenium-remote-driver</artifactId>
         <version>${selenium.version}</version>
     </dependency>
+
+    <dependency>
+        <groupId>org.seleniumhq.selenium</groupId>
+        <artifactId>selenium-devtools-v131</artifactId>
+        <version>${selenium.version}</version>
+    </dependency>
  
     <!-- Web Driver Manager -->
     <dependency>
@@ -106,6 +118,25 @@
         <scope>test</scope>
     </dependency>
 
+    <dependency>
+        <groupId>io.qameta.allure</groupId>
+        <artifactId>allure-java-commons</artifactId>
+        <version>${allure.version}</version>
+        <scope>test</scope>
+    </dependency>
+
+    <!-- JCodec for MP4 recording -->
+    <dependency>
+        <groupId>org.jcodec</groupId>
+        <artifactId>jcodec</artifactId>
+        <version>0.2.5</version>
+    </dependency>
+    <dependency>
+        <groupId>org.jcodec</groupId>
+        <artifactId>jcodec-javase</artifactId>
+        <version>0.2.5</version>
+    </dependency>
+
   </dependencies>
 
   <build>
@@ -127,6 +158,9 @@
                     <suiteXmlFiles>
                         <suiteXmlFile>testng.xml</suiteXmlFile>
                     </suiteXmlFiles>
+                    <argLine>
+                        -javaagent:"${settings.localRepository}/org/aspectj/aspectjweaver/${aspectj.version}/aspectjweaver-${aspectj.version}.jar"
+                    </argLine>
                 </configuration>
                 <dependencies>
                     <dependency>
@@ -148,16 +182,29 @@
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>${maven.surefire.plugin.version}</version>
-                <configuration>
-                    <suiteXmlFiles>
-                        <suiteXmlFile>testng.xml</suiteXmlFile>
-                    </suiteXmlFiles>
-                    <argLine>
-                        -javaagent:"${settings.localRepository}/org/aspectj/aspectjweaver/${aspectj.version}/aspectjweaver-${aspectj.version}.jar"
-                    </argLine>
-                </configuration>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>3.3.1</version>
+                <executions>
+                    <execution>
+                        <id>copy-allure-environment</id>
+                        <phase>process-test-resources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/allure-results</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>src/test/resources</directory>
+                                    <filtering>true</filtering>
+                                    <includes>
+                                        <include>environment.properties</include>
+                                    </includes>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
