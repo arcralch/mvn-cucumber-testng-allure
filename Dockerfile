@@ -46,10 +46,17 @@ RUN wget -q -O /tmp/chrome.deb \
     && rm /tmp/chrome.deb \
     && rm -rf /var/lib/apt/lists/*
 
-# ── 3. Mozilla Firefox (via repositorio Mozilla PPA) ─────────────────
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends firefox-esr \
-    && ln -sf /usr/bin/firefox-esr /usr/local/bin/firefox \
+# ── 3. Mozilla Firefox (via repositorio oficial de Mozilla para apt) ──
+RUN install -d -m 0755 /etc/apt/keyrings \
+    && wget -q https://packages.mozilla.org/apt/repo-signing-key.gpg \
+       -O /etc/apt/keyrings/packages.mozilla.org.asc \
+    && echo "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] \
+       https://packages.mozilla.org/apt mozilla main" \
+       | tee /etc/apt/sources.list.d/mozilla.list > /dev/null \
+    && printf 'Package: *\nPin: origin packages.mozilla.org\nPin-Priority: 1000\n' \
+       | tee /etc/apt/preferences.d/mozilla \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends firefox \
     && rm -rf /var/lib/apt/lists/*
 
 # ── 4. GeckoDriver (WebDriver para Firefox) ──────────────────────────
