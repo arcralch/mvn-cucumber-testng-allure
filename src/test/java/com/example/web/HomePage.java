@@ -30,22 +30,28 @@ public class HomePage extends Methods {
 
     public HomePage getUrl(String url){
         driver.navigate().to(url);
-        waitForElement(txt_username);
+        waitElement();
         return this;
     }
 
     public HomePage getUserPassword(String user, String password){
         sendKeysForElements(txt_username,user);
         sendKeysForElements(txt_password,password);
+        return this;
+    }
+
+    public HomePage clickLogin(){
         clickForElement(btn_login);
+        waitElement();
         return this;
     }
 
     public HomePage getVerifyLogin(){
-        String homePageHeading = stringForElement(lbl_dashboard);
+        String homePageHeading = sendKeysForElement(lbl_dashboard);
         
         //Verify new page - HomePage
-        switch (System.getProperty("BROWSER").toUpperCase()) {
+        String browser = com.example.config.driver.Driver.getBrowserCurrentThread();
+        switch (browser.toUpperCase()) {
             case "CHROME": 
             case "FIREFOX":
                 waitForElement(lbl_dashboard);
@@ -55,7 +61,7 @@ public class HomePage extends Methods {
                 Assert.assertEquals(homePageHeading, "Negativo");
                 break;
         }
-        
+        waitElement();
         return this;
     }
 

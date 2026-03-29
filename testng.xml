@@ -7,6 +7,7 @@
   <parameter name="headless" value="false" />
   <parameter name="remote" value="false" />
   <parameter name="urlremote" value="http://192.168.254.128:4444/wd/hub/" />
+  <parameter name="video" value="true" />
   <test name="Chrome TestNG Test">
     <parameter name="browser" value="chrome" />
     <parameter name="env" value="qa" />
@@ -15,11 +16,11 @@
     </classes>
   </test> <!-- Test -->
 
-  <!--<test name="Firefox TestNG Test">
+  <test name="Firefox TestNG Test">
     <parameter name="browser" value="firefox" />
     <parameter name="env" value="qa" />
     <classes>
       <class name="com.example.runner.LoginPageRunner"/>
     </classes>
-  </test>   Test -->
+  </test>  <!-- Test -->
 </suite> <!-- Suite -->
