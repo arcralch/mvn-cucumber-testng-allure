@@ -2,45 +2,42 @@
 # Ejecuta TODAS las pruebas dentro del contenedor Docker.
 # La imagen ya incluye: Java 11, Maven, Chrome, Firefox y GeckoDriver.
 
-name: Selenium Docker CI
+name: Run Tests Selenium Java
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
+    paths:
+      - '**/*.java'
+      - '**/*.xml'
+      - '**/*.feature'
+      - 'pom.xml'
+      - 'Dockerfile'
 
 jobs:
-  docker-tests:
+  test:
     runs-on: ubuntu-latest
 
     steps:
-    # 1. Descargar el repo (para obtener el Dockerfile)
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      # 1. Clonar repo
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    # 2. Construir imagen Docker
-    - name: Build Docker image
-      run: |
-        docker build -t selenium-tests .
+      # 2. Construir imagen Docker
+      - name: Build Docker image
+        run: docker build -t selenium-tests .
 
-    # 3. Ejecutar pruebas dentro del contenedor
-    - name: Run tests
-      run: |
-        docker run --rm selenium-tests
+      # 3. Ejecutar pruebas dentro del contenedor
+      - name: Run tests
+        run: docker run --rm selenium-tests
 
-    # 4. Guardar resultados Allure
-    - name: Upload Allure results
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: allure-results
-        path: /home/runner/work/**/target/allure-results
-
-    # 5. Guardar reportes TestNG (opcional)
-    - name: Upload TestNG reports
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: testng-reports
-        path: /home/runner/work/**/target/surefire-reports
+      # 4. Guardar reporte Allure (opcional)
+      - name: Upload Allure Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results
+          path: |
+            target/allure-results
+            target/allure-report
