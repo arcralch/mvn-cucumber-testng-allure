@@ -5,6 +5,8 @@
 name: Selenium Docker CI
 
 on:
+  push:
+    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
 
