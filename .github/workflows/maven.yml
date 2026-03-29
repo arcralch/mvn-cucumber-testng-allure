@@ -14,6 +14,11 @@ on:
   pull_request:
     branches: [ "main" ]
 
+# Forzar Node.js 24 en todas las GitHub Actions para evitar warnings de deprecación de Node20.
+# GitHub migrará a Node24 por defecto en junio 2026. Esta env adelanta esa migración.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
