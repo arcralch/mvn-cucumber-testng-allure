@@ -1,0 +1,156 @@
+# Workflow de CI usando Docker + Selenium Standalone (Chrome y Firefox)
+# Los browsers y WebDrivers corren dentro de contenedores Docker oficiales de Selenium.
+# No requiere instalar browsers ni drivers directamente en el runner.
+
+name: Java CI con Maven + Docker (Selenium)
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+# Forzar Node.js 24 en todas las GitHub Actions
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  test-docker:
+    runs-on: ubuntu-latest
+    name: test (${{ matrix.browser }})
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ── CHROME ──────────────────────────────────────────
+          - browser: CHROME
+            browser_name: Google Chrome
+            selenium_image: selenium/standalone-chrome:latest
+
+          # ── FIREFOX ─────────────────────────────────────────
+          - browser: FIREFOX
+            browser_name: Mozilla Firefox
+            selenium_image: selenium/standalone-firefox:latest
+
+    steps:
+    # ─────────────────────────────────────────────────────────
+    # 1. Checkout del código fuente
+    # ─────────────────────────────────────────────────────────
+    - name: Checkout del repositorio
+      uses: actions/checkout@v4.2.2
+
+    # ─────────────────────────────────────────────────────────
+    # 2. Configurar JDK 11
+    # ─────────────────────────────────────────────────────────
+    - name: Configurar JDK 11
+      uses: actions/setup-java@v4.7.0
+      with:
+        java-version: '11'
+        distribution: 'temurin'
+        cache: maven
+
+    # ─────────────────────────────────────────────────────────
+    # 3. Cache de dependencias de Maven
+    # ─────────────────────────────────────────────────────────
+    - name: Cache de paquetes de Maven
+      uses: actions/cache@v4.2.3
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+
+    # ─────────────────────────────────────────────────────────
+    # 4. Levantar contenedor Docker de Selenium (${{ matrix.browser_name }})
+    #    --network host  → el runner accede al contenedor en localhost:4444
+    #    --shm-size=2gb  → necesario para Chrome (evita crashes por memoria compartida)
+    #    -d              → modo background (demonio)
+    # ─────────────────────────────────────────────────────────
+    - name: Iniciar Selenium Docker (${{ matrix.browser_name }})
+      run: |
+        echo "=== Iniciando contenedor Selenium: ${{ matrix.selenium_image }} ==="
+        docker run -d \
+          --name selenium-${{ matrix.browser }} \
+          --network host \
+          --shm-size=2gb \
+          --restart=no \
+          ${{ matrix.selenium_image }}
+
+        echo "=== Esperando a que Selenium esté listo en localhost:4444 ==="
+        for i in $(seq 1 30); do
+          STATUS=$(curl -s http://localhost:4444/wd/hub/status 2>/dev/null || echo "")
+          if echo "$STATUS" | grep -q '"ready":true'; then
+            echo "✅ Selenium ${{ matrix.browser_name }} listo en el intento $i"
+            break
+          fi
+          echo "⏳ Intento $i/30 — esperando 3 segundos..."
+          sleep 3
+        done
+
+        echo "=== Estado final del contenedor ==="
+        curl -s http://localhost:4444/wd/hub/status | python3 -m json.tool || true
+
+    # ─────────────────────────────────────────────────────────
+    # 5. Ejecutar pruebas con Maven → RemoteWebDriver → Selenium Docker
+    #    El código Java se conecta al contenedor Docker en localhost:4444
+    #    usando RemoteWebDriver (configurado en Driver.java con -DREMOTE=true)
+    #    -DHEADLESS=true  → no abrir ventanas en el runner (el docker maneja su propio display)
+    #    -DREMOTE=true    → usar RemoteWebDriver en lugar de driver local
+    #    -DURLREMOTE      → URL del hub de Selenium dentro del contenedor
+    # ─────────────────────────────────────────────────────────
+    - name: Ejecutar Pruebas (${{ matrix.browser_name }}) via Docker
+      run: |
+        mvn clean test -e \
+          -DHEADLESS=true \
+          -DVIDEO=false \
+          -DREMOTE=true \
+          -DURLREMOTE=http://localhost:4444/wd/hub \
+          -DBROWSER=${{ matrix.browser }} \
+          -DENV=qa
+
+    # ─────────────────────────────────────────────────────────
+    # 6. Mostrar logs del contenedor si fallan los tests
+    # ─────────────────────────────────────────────────────────
+    - name: Logs del contenedor Selenium (${{ matrix.browser_name }})
+      if: failure()
+      run: |
+        echo "=== Logs del contenedor selenium-${{ matrix.browser }} ==="
+        docker logs selenium-${{ matrix.browser }} || true
+
+    # ─────────────────────────────────────────────────────────
+    # 7. Detener y eliminar el contenedor Docker
+    # ─────────────────────────────────────────────────────────
+    - name: Detener contenedor Selenium (${{ matrix.browser_name }})
+      if: always()
+      run: |
+        docker stop selenium-${{ matrix.browser }} || true
+        docker rm selenium-${{ matrix.browser }} || true
+
+    # ─────────────────────────────────────────────────────────
+    # 8. Subir reportes Surefire para diagnóstico
+    # ─────────────────────────────────────────────────────────
+    - name: Subir reportes Surefire (${{ matrix.browser_name }})
+      if: always()
+      uses: actions/upload-artifact@v4.6.2
+      with:
+        name: surefire-reports-${{ matrix.browser }}
+        path: target/surefire-reports
+        retention-days: 7
+
+    # ─────────────────────────────────────────────────────────
+    # 9. Subir resultados de Allure por browser
+    # ─────────────────────────────────────────────────────────
+    - name: Subir resultados de Allure (${{ matrix.browser_name }})
+      if: always()
+      uses: actions/upload-artifact@v4.6.2
+      with:
+        name: allure-results-${{ matrix.browser }}
+        path: target/allure-results
+        retention-days: 7
+
+    # ─────────────────────────────────────────────────────────
+    # 10. Generar Reporte Allure
+    # ─────────────────────────────────────────────────────────
+    - name: Generar Reporte Allure (${{ matrix.browser_name }})
+      if: always()
+      run: mvn allure:report
