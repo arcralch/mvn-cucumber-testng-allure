@@ -6,51 +6,68 @@
 # separate terms of service, privacy policy, and support
 # documentation.
 
-name: Java CI with Maven
+name: Java CI con Maven
 
 on:
-  push:
-    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        browser: [chrome, firefox]   # 🔥 ejecuta ambos
-
     steps:
-    # Checkout
-    - uses: actions/checkout@v4
+    # 1. Checkout del código fuente
+    - name: Checkout del repositorio
+      uses: actions/checkout@v4
 
-    # Java
-    - name: Set up JDK 17
+    # 2. Configuración de JDK 11 (Basado en pom.xml)
+    - name: Configurar JDK 11
       uses: actions/setup-java@v4
       with:
-        java-version: '17'
+        java-version: '11'
         distribution: 'temurin'
         cache: maven
 
-    # (Opcional pero recomendado) instalar Firefox
-    - name: Install Firefox
-      run: sudo apt-get update && sudo apt-get install -y firefox
+    # 3. Instalación de Navegadores (Chrome y Edge)
+    - name: Configurar Chrome y Edge
+      run: |
+        # Chrome ya viene preinstalado en ubuntu-latest, solo aseguramos que el driver esté listo
+        google-chrome --version
+        microsoft-edge --version
 
-    # Ejecutar pruebas pasando el browser
-    - name: Run tests
-      run: mvn clean test -Dbrowser=${{ matrix.browser }}
+    # 4. Cache de dependencias de Maven
+    - name: Cache de paquetes de Maven
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
 
-    # Guardar reportes
-    - name: Upload Test Results
+    # 5. Ejecución de Pruebas Automated
+    # Se activan banderas específicas para entorno CI:
+    # - HEADLESS=true: Obligatorio en runners de GitHub
+    # - VIDEO=false: Robot no puede capturar en entornos sin pantalla física
+    - name: Ejecutar Pruebas con Maven (Headless)
+      run: |
+        mvn clean test \
+          -DHEADLESS=true \
+          -DVIDEO=false \
+          -DBROWSER=CHROME \
+          -DENV=qa
+
+    # 6. Recopilación de Resultados de Allure
+    # Sube la carpeta allure-results como un artefacto para poder visualizarlo localmente
+    - name: Subir resultados de Allure
+      if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: test-results-${{ matrix.browser }}
-        path: |
-          target/surefire-reports
-          target/failsafe-reports
+        name: allure-results
+        path: target/allure-results
+        retention-days: 7
 
-    # Dependencias
-    - name: Update dependency graph
-      uses: advanced-security/maven-dependency-submission-action@571e99aab1055c2e71a1e2309b9691de18d6b7d6
+    # 7. (Opcional) Generación de Reporte Allure Estático
+    # Solo se ejecuta si los tests terminaron satisfactoriamente o fallaron (no si se cancelaron)
+    - name: Generar Reporte Allure (Opcional)
+      if: always()
+      run: mvn allure:report
