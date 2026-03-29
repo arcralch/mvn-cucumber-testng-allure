@@ -22,45 +22,40 @@ jobs:
     runs-on: ubuntu-latest
 
     strategy:
+      fail-fast: false   # 🔥 IMPORTANTE
       matrix:
         browser: [CHROME, FIREFOX]
 
     steps:
-    # 1. Checkout
-    - name: Checkout del repositorio
+    - name: Checkout
       uses: actions/checkout@v4
 
-    # 2. Java
-    - name: Configurar JDK 11
+    - name: Configurar Java
       uses: actions/setup-java@v4
       with:
         java-version: '11'
         distribution: 'temurin'
         cache: maven
 
-    # 3. Navegadores
     - name: Setup Chrome
       uses: browser-actions/setup-chrome@v1
 
     - name: Setup Firefox
       uses: browser-actions/setup-firefox@v1
 
-    # 4. Verificación
     - name: Verificar navegadores
       run: |
         google-chrome --version
         firefox --version
 
-    # 5. Cache Maven
-    - name: Cache de Maven
+    - name: Cache Maven
       uses: actions/cache@v4
       with:
         path: ~/.m2
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-m2
 
-    # 6. Tests
-    - name: Ejecutar Pruebas
+    - name: Ejecutar tests
       run: |
         mvn clean test \
           -DHEADLESS=true \
@@ -68,14 +63,13 @@ jobs:
           -DBROWSER=${{ matrix.browser }} \
           -DENV=qa
 
-    # 7. Allure
-    - name: Subir resultados Allure
+    - name: Subir Allure
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: allure-results-${{ matrix.browser }}
+        name: allure-${{ matrix.browser }}
         path: target/allure-results
 
-    - name: Generar Reporte Allure
+    - name: Reporte Allure
       if: always()
       run: mvn allure:report
