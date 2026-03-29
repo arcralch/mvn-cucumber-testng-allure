@@ -15,6 +15,17 @@ on:
       - 'pom.xml'
       - 'Dockerfile'
 
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '**/*.java'
+      - '**/*.xml'
+      - '**/*.feature'
+      - 'pom.xml'
+      - 'Dockerfile'
+
+
 jobs:
   test:
     runs-on: ubuntu-latest
