@@ -1,13 +1,11 @@
-# Workflow de CI usando un contenedor Docker autosuficiente
-# La imagen Docker contiene: Java 11, Maven, Chrome, Firefox y GeckoDriver.
-# Todo el proceso de pruebas ocurre DENTRO del contenedor.
+# Workflow de CI usando Docker autosuficiente
+# Ejecuta TODAS las pruebas dentro del contenedor Docker.
+# La imagen ya incluye: Java 11, Maven, Chrome, Firefox y GeckoDriver.
 
-name: Java CI con Maven + Docker (Autosuficiente)
+name: Java CI con Maven + Docker
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
     branches: [ "main" ]
 
 # Forzar Node.js 24 en las GitHub Actions
@@ -15,7 +13,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  test-docker:
+  test:
     runs-on: ubuntu-latest
     name: test (${{ matrix.browser }})
 
@@ -36,55 +34,76 @@ jobs:
       uses: actions/checkout@v4.2.2
 
     # ─────────────────────────────────────────────────────────
-    # 2. Cache de capas Docker (acelera builds repetidos)
+    # 2. Cache de imagen Docker usando BuildKit
     # ─────────────────────────────────────────────────────────
+    - name: Configurar Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
     - name: Cache de capas Docker
       uses: actions/cache@v4.2.3
       with:
         path: /tmp/.buildx-cache
-        key: ${{ runner.os }}-docker-${{ hashFiles('Dockerfile', 'pom.xml') }}
-        restore-keys: ${{ runner.os }}-docker-
+        key: ${{ runner.os }}-buildx-${{ hashFiles('Dockerfile', 'pom.xml') }}
+        restore-keys: ${{ runner.os }}-buildx-
 
     # ─────────────────────────────────────────────────────────
-    # 3. Construir la imagen Docker del proyecto
-    #    La imagen incluye: Java 11, Maven, Chrome, Firefox,
-    #    GeckoDriver y todas las dependencias del proyecto
+    # 3. Construir la imagen Docker
+    #    La imagen incluye: Java 11, Maven, Chrome, Firefox y GeckoDriver.
     # ─────────────────────────────────────────────────────────
-    - name: Construir imagen Docker del proyecto
+    - name: Construir imagen Docker
       run: |
-        echo "=== Construyendo imagen Docker con todos los componentes ==="
-        docker build \
-          --tag selenium-test-suite:${{ matrix.browser }}-${{ github.run_number }} \
-          --tag selenium-test-suite:latest \
+        echo "=== Construyendo imagen con Chrome, Firefox y WebDrivers ==="
+        docker buildx build \
+          --tag selenium-suite:${{ matrix.browser }} \
+          --cache-from type=local,src=/tmp/.buildx-cache \
+          --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max \
+          --load \
           .
-        echo "=== Imagen construida exitosamente ==="
-        docker images selenium-test-suite
+        # Rotar cache para evitar crecimiento infinito
+        rm -rf /tmp/.buildx-cache
+        mv /tmp/.buildx-cache-new /tmp/.buildx-cache 2>/dev/null || true
+        echo "=== Imagen construida ==="
+        docker images selenium-suite:${{ matrix.browser }}
 
     # ─────────────────────────────────────────────────────────
-    # 4. Ejecutar las pruebas DENTRO del contenedor Docker
-    #    El contenedor ya tiene Chrome, Firefox, WebDrivers y Maven.
-    #    Los resultados se montan como volumen para recuperarlos.
+    # 4. Preparar directorio de resultados en el runner
+    #    Necesario para que el volumen de Docker funcione correctamente
+    # ─────────────────────────────────────────────────────────
+    - name: Crear directorio de resultados
+      run: mkdir -p target/allure-results target/surefire-reports
+
+    # ─────────────────────────────────────────────────────────
+    # 5. Ejecutar pruebas DENTRO del contenedor Docker
+    #    - Inicia Xvfb (display virtual) para Chrome/Firefox
+    #    - Monta ./target como volumen → resultados disponibles en el runner
+    #    - --user root → evita problemas de permisos al escribir en el volumen
     # ─────────────────────────────────────────────────────────
     - name: Ejecutar Pruebas (${{ matrix.browser_name }}) en Docker
       run: |
-        echo "=== Ejecutando pruebas con ${{ matrix.browser_name }} dentro del contenedor ==="
         docker run --rm \
-          --name test-runner-${{ matrix.browser }} \
+          --user root \
           --shm-size=2gb \
           --volume "$(pwd)/target:/app/target" \
-          --env HEADLESS=true \
-          --env VIDEO=false \
-          --env BROWSER=${{ matrix.browser }} \
-          --env ENV=qa \
-          selenium-test-suite:latest \
-          mvn test -e \
-            -DHEADLESS=true \
-            -DVIDEO=false \
-            -DBROWSER=${{ matrix.browser }} \
-            -DENV=qa
+          --env DISPLAY=:99 \
+          selenium-suite:${{ matrix.browser }} \
+          bash -c "
+            Xvfb :99 -screen 0 1280x720x24 &
+            sleep 1
+            echo '=== Entorno de ejecución ==='
+            java -version
+            mvn --version
+            google-chrome --version || true
+            firefox --version || true
+            echo '=== Iniciando pruebas con ${{ matrix.browser }} ==='
+            mvn test -e \
+              -DHEADLESS=true \
+              -DVIDEO=false \
+              -DBROWSER=${{ matrix.browser }} \
+              -DENV=qa
+          "
 
     # ─────────────────────────────────────────────────────────
-    # 5. Subir reportes Surefire para diagnóstico de errores
+    # 6. Subir reportes Surefire (siempre, para diagnóstico)
     # ─────────────────────────────────────────────────────────
     - name: Subir reportes Surefire (${{ matrix.browser_name }})
       if: always()
@@ -92,10 +111,11 @@ jobs:
       with:
         name: surefire-reports-${{ matrix.browser }}
         path: target/surefire-reports
+        if-no-files-found: warn
         retention-days: 7
 
     # ─────────────────────────────────────────────────────────
-    # 6. Subir resultados de Allure por browser
+    # 7. Subir resultados de Allure
     # ─────────────────────────────────────────────────────────
     - name: Subir resultados de Allure (${{ matrix.browser_name }})
       if: always()
@@ -103,12 +123,13 @@ jobs:
       with:
         name: allure-results-${{ matrix.browser }}
         path: target/allure-results
+        if-no-files-found: warn
         retention-days: 7
 
     # ─────────────────────────────────────────────────────────
-    # 7. Generar Reporte Allure (en el runner, no en el contenedor)
+    # 8. Generar Reporte Allure (en el runner)
     # ─────────────────────────────────────────────────────────
-    - name: Configurar JDK 11 (para generar reporte Allure)
+    - name: Configurar JDK para Allure Report
       if: always()
       uses: actions/setup-java@v4.7.0
       with:
@@ -118,11 +139,11 @@ jobs:
 
     - name: Generar Reporte Allure (${{ matrix.browser_name }})
       if: always()
-      run: mvn allure:report
+      run: mvn allure:report -q || true
 
     # ─────────────────────────────────────────────────────────
-    # 8. Limpiar imagen Docker del runner
+    # 9. Limpiar imagen Docker del runner
     # ─────────────────────────────────────────────────────────
     - name: Limpiar imagen Docker
       if: always()
-      run: docker rmi selenium-test-suite:latest || true
+      run: docker rmi selenium-suite:${{ matrix.browser }} || true
