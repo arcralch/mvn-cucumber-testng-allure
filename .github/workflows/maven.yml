@@ -18,12 +18,16 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        browser: [CHROME, FIREFOX]
+
     steps:
-    # 1. Checkout del código fuente
+    # 1. Checkout
     - name: Checkout del repositorio
       uses: actions/checkout@v4
 
-    # 2. Configuración de JDK 11 (Basado en pom.xml)
+    # 2. Java
     - name: Configurar JDK 11
       uses: actions/setup-java@v4
       with:
@@ -31,14 +35,24 @@ jobs:
         distribution: 'temurin'
         cache: maven
 
-    # 3. Instalación de Navegadores (Chrome y Edge)
-    - name: Configurar Chrome y Edge
+    # 3. Instalar Chrome + Firefox + Drivers
+    - name: Instalar navegadores y drivers
       run: |
-        # Chrome ya viene preinstalado en ubuntu-latest, solo aseguramos que el driver esté listo
+        # Chrome (ya viene instalado)
         google-chrome --version
-        microsoft-edge --version
 
-    # 4. Cache de dependencias de Maven
+        # Firefox
+        sudo apt-get update
+        sudo apt-get install -y firefox
+
+        # GeckoDriver (para Firefox)
+        wget https://github.com/mozilla/geckodriver/releases/latest/download/geckodriver-linux64.tar.gz
+        tar -xvzf geckodriver-linux64.tar.gz
+        sudo mv geckodriver /usr/local/bin/
+
+        geckodriver --version
+
+    # 4. Cache Maven
     - name: Cache de paquetes de Maven
       uses: actions/cache@v4
       with:
@@ -46,30 +60,25 @@ jobs:
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-m2
 
-    # 5. Ejecución de Pruebas Automated
-    # Se activan banderas específicas para entorno CI:
-    # - HEADLESS=true: Obligatorio en runners de GitHub
-    # - VIDEO=false: Robot no puede capturar en entornos sin pantalla física
+    # 5. Ejecutar pruebas (dinámico por navegador)
     - name: Ejecutar Pruebas con Maven (Headless)
       run: |
         mvn clean test \
           -DHEADLESS=true \
           -DVIDEO=false \
-          -DBROWSER=CHROME \
+          -DBROWSER=${{ matrix.browser }} \
           -DENV=qa
 
-    # 6. Recopilación de Resultados de Allure
-    # Sube la carpeta allure-results como un artefacto para poder visualizarlo localmente
+    # 6. Allure results
     - name: Subir resultados de Allure
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: allure-results
+        name: allure-results-${{ matrix.browser }}
         path: target/allure-results
         retention-days: 7
 
-    # 7. (Opcional) Generación de Reporte Allure Estático
-    # Solo se ejecuta si los tests terminaron satisfactoriamente o fallaron (no si se cancelaron)
+    # 7. Reporte Allure
     - name: Generar Reporte Allure (Opcional)
       if: always()
       run: mvn allure:report
