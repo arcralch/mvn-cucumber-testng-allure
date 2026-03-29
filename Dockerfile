@@ -74,7 +74,7 @@ RUN java -version && mvn --version \
     && geckodriver --version | head -1
 
 # ── 6. Clonar repositorio ────────────────────────────────────────────
-RUN git clone https://github.com/arcralch/mvn-cucumber-testng-allure.git /app
+RUN git clone https://github.com/arcralch/mvn-cucumber-testng-allure.git -b main /app
 
 WORKDIR /app
 
