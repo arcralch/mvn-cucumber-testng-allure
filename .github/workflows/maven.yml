@@ -29,11 +29,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # --- CHROME ---
           - browser: CHROME
             browser_name: Google Chrome
-
-          # --- FIREFOX ---
           - browser: FIREFOX
             browser_name: Mozilla Firefox
 
@@ -42,30 +39,52 @@ jobs:
     # 1. Checkout del código fuente
     # ─────────────────────────────────────────────────────────
     - name: Checkout del repositorio
-      uses: actions/checkout@v4
+      uses: actions/checkout@v4.2.2
 
     # ─────────────────────────────────────────────────────────
     # 2. Configuración de JDK 11 (Basado en pom.xml)
     # ─────────────────────────────────────────────────────────
     - name: Configurar JDK 11
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v4.7.0
       with:
         java-version: '11'
         distribution: 'temurin'
         cache: maven
 
     # ─────────────────────────────────────────────────────────
-    # 3. Instalación de Navegador y WebDriver
-    #    - CHROME: ya viene preinstalado en ubuntu-latest
-    #              WebDriverManager descarga chromedriver automáticamente
-    #    - FIREFOX: se instala via apt, GeckoDriver se instala manualmente
+    # 3. Cache de dependencias de Maven
+    # ─────────────────────────────────────────────────────────
+    - name: Cache de paquetes de Maven
+      uses: actions/cache@v4.2.3
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+
+    # ─────────────────────────────────────────────────────────
+    # 4. Cache del WebDriver (ChromeDriver / GeckoDriver)
+    #    Evita descargas repetidas en cada ejecución del workflow
+    # ─────────────────────────────────────────────────────────
+    - name: Cache de WebDrivers (WebDriverManager)
+      uses: actions/cache@v4.2.3
+      with:
+        path: ~/.cache/selenium
+        key: ${{ runner.os }}-webdrivers-${{ matrix.browser }}-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-webdrivers-${{ matrix.browser }}
+
+    # ─────────────────────────────────────────────────────────
+    # 5. Instalación del Navegador y verificación del WebDriver
+    #    CHROME: preinstalado en ubuntu-latest
+    #            → ChromeDriver se descarga via WebDriverManager (Java)
+    #    FIREFOX: se instala via apt-get
+    #             → GeckoDriver se instala desde release oficial de Mozilla
     # ─────────────────────────────────────────────────────────
     - name: Instalar ${{ matrix.browser_name }} y WebDriver
       run: |
         if [ "${{ matrix.browser }}" == "CHROME" ]; then
           echo "=== Verificando Google Chrome ==="
           google-chrome --version
-          # ChromeDriver es descargado automáticamente por WebDriverManager en tiempo de ejecución
+          echo "ChromeDriver será descargado automáticamente por WebDriverManager"
 
         elif [ "${{ matrix.browser }}" == "FIREFOX" ]; then
           echo "=== Instalando Mozilla Firefox ==="
@@ -73,8 +92,9 @@ jobs:
           sudo apt-get install -y firefox
 
           echo "=== Instalando GeckoDriver (WebDriver para Firefox) ==="
-          GECKO_VERSION=$(curl -s https://api.github.com/repos/mozilla/geckodriver/releases/latest | grep '"tag_name"' | sed 's/.*"v\([^"]*\)".*/\1/')
-          echo "Versión de GeckoDriver a instalar: $GECKO_VERSION"
+          GECKO_VERSION=$(curl -s https://api.github.com/repos/mozilla/geckodriver/releases/latest \
+            | grep '"tag_name"' | sed 's/.*"v\([^"]*\)".*/\1/')
+          echo "Instalando GeckoDriver v${GECKO_VERSION}"
           wget -q "https://github.com/mozilla/geckodriver/releases/download/v${GECKO_VERSION}/geckodriver-v${GECKO_VERSION}-linux64.tar.gz"
           tar -xzf "geckodriver-v${GECKO_VERSION}-linux64.tar.gz"
           sudo mv geckodriver /usr/local/bin/
@@ -86,43 +106,47 @@ jobs:
         fi
 
     # ─────────────────────────────────────────────────────────
-    # 4. Cache de dependencias de Maven
-    # ─────────────────────────────────────────────────────────
-    - name: Cache de paquetes de Maven
-      uses: actions/cache@v4
-      with:
-        path: ~/.m2
-        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-        restore-keys: ${{ runner.os }}-m2
-
-    # ─────────────────────────────────────────────────────────
-    # 5. Ejecución de Pruebas con Selenium + Cucumber + TestNG
-    #    Flags CI obligatorios:
-    #    -DHEADLESS=true  → modo sin pantalla (obligatorio en CI)
-    #    -DVIDEO=false    → desactivar grabación (Robot requiere pantalla física)
+    # 6. Ejecución de Pruebas con Selenium + Cucumber + TestNG
+    #    Flags de entorno CI:
+    #    -DHEADLESS=true  → modo headless obligatorio en runners sin pantalla
+    #    -DVIDEO=false    → sin grabación (Robot requiere pantalla física)
     #    -DBROWSER        → browser de la matrix actual
+    #    -e               → muestra errores detallados
+    #    -Dwdm.cachePath  → apunta al directorio cacheado del WebDriverManager
     # ─────────────────────────────────────────────────────────
     - name: Ejecutar Pruebas Headless (${{ matrix.browser_name }})
       run: |
-        mvn clean test \
+        mvn clean test -e \
           -DHEADLESS=true \
           -DVIDEO=false \
           -DBROWSER=${{ matrix.browser }} \
-          -DENV=qa
+          -DENV=qa \
+          -Dwdm.cachePath="${HOME}/.cache/selenium"
 
     # ─────────────────────────────────────────────────────────
-    # 6. Subir resultados de Allure por browser
+    # 7. Subir reporte Surefire para diagnóstico de fallos
+    # ─────────────────────────────────────────────────────────
+    - name: Subir reportes Surefire (${{ matrix.browser_name }})
+      if: always()
+      uses: actions/upload-artifact@v4.6.2
+      with:
+        name: surefire-reports-${{ matrix.browser }}
+        path: target/surefire-reports
+        retention-days: 7
+
+    # ─────────────────────────────────────────────────────────
+    # 8. Subir resultados de Allure por browser
     # ─────────────────────────────────────────────────────────
     - name: Subir resultados de Allure (${{ matrix.browser_name }})
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v4.6.2
       with:
         name: allure-results-${{ matrix.browser }}
         path: target/allure-results
         retention-days: 7
 
     # ─────────────────────────────────────────────────────────
-    # 7. Generar Reporte Allure (siempre se ejecuta)
+    # 9. Generar Reporte Allure (siempre se ejecuta)
     # ─────────────────────────────────────────────────────────
     - name: Generar Reporte Allure (${{ matrix.browser_name }})
       if: always()
