@@ -4,10 +4,10 @@
   <listeners>
     <listener class-name="io.qameta.allure.testng.AllureTestNg" />
   </listeners>
-  <parameter name="headless" value="false" />
+  <parameter name="headless" value="true" />
   <parameter name="remote" value="false" />
   <parameter name="urlremote" value="http://192.168.254.128:4444/wd/hub/" />
-  <parameter name="video" value="true" />
+  <parameter name="video" value="false" />
   <test name="Chrome TestNG Test">
     <parameter name="browser" value="chrome" />
     <parameter name="env" value="qa" />
