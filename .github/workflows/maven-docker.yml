@@ -5,6 +5,8 @@
 name: Selenium Docker CI
 
 on:
+  push:
+    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
 
@@ -13,37 +15,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # 1. Checkout
+    # 1. Descargar el repo (para obtener el Dockerfile)
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    # 2. Build Docker image
+    # 2. Construir imagen Docker
     - name: Build Docker image
-      run: docker build -t selenium-tests .
+      run: |
+        docker build -t selenium-tests .
 
-    # 3. Ejecutar pruebas
+    # 3. Ejecutar pruebas dentro del contenedor
     - name: Run tests
       run: |
-        docker run --rm \
-          -v ${{ github.workspace }}/allure-results:/app/target/allure-results \
-          selenium-tests mvn clean test
+        docker run --rm selenium-tests
 
-    # 4. Generar reporte Allure
-    - name: Generate Allure report
-      run: |
-        docker run --rm \
-          -v ${{ github.workspace }}/allure-results:/app/target/allure-results \
-          -v ${{ github.workspace }}/allure-report:/app/target/site/allure-maven-plugin \
-          selenium-tests mvn allure:report
-
-    # 5. Comprimir reporte
-    - name: Compress report
-      run: |
-        zip -r allure-report.zip allure-report
-
-    # 6. Subir ZIP
-    - name: Upload Allure ZIP
+    # 4. Guardar resultados Allure
+    - name: Upload Allure results
+      if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: allure-report
-        path: allure-report.zip
+        name: allure-results
+        path: /home/runner/work/**/target/allure-results
+
+    # 5. Guardar reportes TestNG (opcional)
+    - name: Upload TestNG reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: testng-reports
+        path: /home/runner/work/**/target/surefire-reports
