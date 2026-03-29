@@ -35,24 +35,20 @@ jobs:
         distribution: 'temurin'
         cache: maven
 
-    # 3. Instalar Chrome + Firefox + Drivers
-    - name: Instalar navegadores y drivers
+    # 3. Instalar navegadores (SIN drivers manuales)
+    - name: Setup Chrome
+      uses: browser-actions/setup-chrome@v1
+
+    - name: Setup Firefox
+      uses: browser-actions/setup-firefox@v1
+
+    # 4. Verificar versiones (debug útil)
+    - name: Verificar navegadores
       run: |
-        # Chrome (ya viene instalado)
         google-chrome --version
+        firefox --version
 
-        # Firefox
-        sudo apt-get update
-        sudo apt-get install -y firefox
-
-        # GeckoDriver (para Firefox)
-        wget https://github.com/mozilla/geckodriver/releases/latest/download/geckodriver-linux64.tar.gz
-        tar -xvzf geckodriver-linux64.tar.gz
-        sudo mv geckodriver /usr/local/bin/
-
-        geckodriver --version
-
-    # 4. Cache Maven
+    # 5. Cache Maven
     - name: Cache de paquetes de Maven
       uses: actions/cache@v4
       with:
@@ -60,7 +56,7 @@ jobs:
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-m2
 
-    # 5. Ejecutar pruebas (dinámico por navegador)
+    # 6. Ejecutar pruebas
     - name: Ejecutar Pruebas con Maven (Headless)
       run: |
         mvn clean test \
@@ -69,7 +65,7 @@ jobs:
           -DBROWSER=${{ matrix.browser }} \
           -DENV=qa
 
-    # 6. Allure results
+    # 7. Allure results
     - name: Subir resultados de Allure
       if: always()
       uses: actions/upload-artifact@v4
@@ -78,7 +74,7 @@ jobs:
         path: target/allure-results
         retention-days: 7
 
-    # 7. Reporte Allure
-    - name: Generar Reporte Allure (Opcional)
+    # 8. Reporte Allure
+    - name: Generar Reporte Allure
       if: always()
       run: mvn allure:report
