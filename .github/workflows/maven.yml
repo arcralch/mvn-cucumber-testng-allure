@@ -30,37 +30,18 @@ jobs:
         distribution: 'temurin'
         cache: maven
 
-    # Instalar Allure
-    - name: Install Allure CLI
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y wget unzip
-        wget https://github.com/allure-framework/allure2/releases/latest/download/allure-2.27.0.zip
-        unzip allure-2.27.0.zip
-        sudo mv allure-2.27.0 /opt/allure
-        sudo ln -s /opt/allure/bin/allure /usr/bin/allure
-
-    # Ejecutar pruebas (IMPORTANTE: test, no package)
-    - name: Run Cucumber TestNG tests
+    # Ejecutar pruebas (Cucumber + TestNG)
+    - name: Run tests
       run: mvn clean test
 
-    # Generar reporte Allure
-    - name: Generate Allure Report
-      run: allure generate target/allure-results --clean -o target/allure-report
-
-    # Subir resultados crudos
-    - name: Upload Allure Results
+    # (Opcional) Guardar reportes básicos de Maven / TestNG
+    - name: Upload Test Results
       uses: actions/upload-artifact@v4
       with:
-        name: allure-results
-        path: target/allure-results
-
-    # Subir reporte HTML
-    - name: Upload Allure Report
-      uses: actions/upload-artifact@v4
-      with:
-        name: allure-report
-        path: target/allure-report
+        name: test-results
+        path: |
+          target/surefire-reports
+          target/failsafe-reports
 
     # Mantener tu paso original (opcional)
     - name: Update dependency graph
