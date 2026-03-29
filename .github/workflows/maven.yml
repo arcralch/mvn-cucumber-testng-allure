@@ -14,48 +14,90 @@ on:
   pull_request:
     branches: [ "main" ]
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    name: build-and-test (${{ matrix.browser }})
 
+    # Matrix de browsers: ejecuta un job separado para CHROME y FIREFOX en paralelo
     strategy:
-      fail-fast: false   # 🔥 IMPORTANTE
+      fail-fast: false
       matrix:
-        browser: [CHROME, FIREFOX]
+        include:
+          # --- CHROME ---
+          - browser: CHROME
+            browser_name: Google Chrome
+
+          # --- FIREFOX ---
+          - browser: FIREFOX
+            browser_name: Mozilla Firefox
 
     steps:
-    - name: Checkout
+    # ─────────────────────────────────────────────────────────
+    # 1. Checkout del código fuente
+    # ─────────────────────────────────────────────────────────
+    - name: Checkout del repositorio
       uses: actions/checkout@v4
 
-    - name: Configurar Java
+    # ─────────────────────────────────────────────────────────
+    # 2. Configuración de JDK 11 (Basado en pom.xml)
+    # ─────────────────────────────────────────────────────────
+    - name: Configurar JDK 11
       uses: actions/setup-java@v4
       with:
         java-version: '11'
         distribution: 'temurin'
         cache: maven
 
-    - name: Setup Chrome
-      uses: browser-actions/setup-chrome@v1
-
-    - name: Setup Firefox
-      uses: browser-actions/setup-firefox@v1
-
-    - name: Verificar navegadores
+    # ─────────────────────────────────────────────────────────
+    # 3. Instalación de Navegador y WebDriver
+    #    - CHROME: ya viene preinstalado en ubuntu-latest
+    #              WebDriverManager descarga chromedriver automáticamente
+    #    - FIREFOX: se instala via apt, GeckoDriver se instala manualmente
+    # ─────────────────────────────────────────────────────────
+    - name: Instalar ${{ matrix.browser_name }} y WebDriver
       run: |
-        google-chrome --version
-        firefox --version
+        if [ "${{ matrix.browser }}" == "CHROME" ]; then
+          echo "=== Verificando Google Chrome ==="
+          google-chrome --version
+          # ChromeDriver es descargado automáticamente por WebDriverManager en tiempo de ejecución
 
-    - name: Cache Maven
+        elif [ "${{ matrix.browser }}" == "FIREFOX" ]; then
+          echo "=== Instalando Mozilla Firefox ==="
+          sudo apt-get update -qq
+          sudo apt-get install -y firefox
+
+          echo "=== Instalando GeckoDriver (WebDriver para Firefox) ==="
+          GECKO_VERSION=$(curl -s https://api.github.com/repos/mozilla/geckodriver/releases/latest | grep '"tag_name"' | sed 's/.*"v\([^"]*\)".*/\1/')
+          echo "Versión de GeckoDriver a instalar: $GECKO_VERSION"
+          wget -q "https://github.com/mozilla/geckodriver/releases/download/v${GECKO_VERSION}/geckodriver-v${GECKO_VERSION}-linux64.tar.gz"
+          tar -xzf "geckodriver-v${GECKO_VERSION}-linux64.tar.gz"
+          sudo mv geckodriver /usr/local/bin/
+          sudo chmod +x /usr/local/bin/geckodriver
+
+          echo "=== Verificación final ==="
+          firefox --version
+          geckodriver --version
+        fi
+
+    # ─────────────────────────────────────────────────────────
+    # 4. Cache de dependencias de Maven
+    # ─────────────────────────────────────────────────────────
+    - name: Cache de paquetes de Maven
       uses: actions/cache@v4
       with:
         path: ~/.m2
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-m2
 
-    - name: Ejecutar tests
+    # ─────────────────────────────────────────────────────────
+    # 5. Ejecución de Pruebas con Selenium + Cucumber + TestNG
+    #    Flags CI obligatorios:
+    #    -DHEADLESS=true  → modo sin pantalla (obligatorio en CI)
+    #    -DVIDEO=false    → desactivar grabación (Robot requiere pantalla física)
+    #    -DBROWSER        → browser de la matrix actual
+    # ─────────────────────────────────────────────────────────
+    - name: Ejecutar Pruebas Headless (${{ matrix.browser_name }})
       run: |
         mvn clean test \
           -DHEADLESS=true \
@@ -63,13 +105,20 @@ jobs:
           -DBROWSER=${{ matrix.browser }} \
           -DENV=qa
 
-    - name: Subir Allure
+    # ─────────────────────────────────────────────────────────
+    # 6. Subir resultados de Allure por browser
+    # ─────────────────────────────────────────────────────────
+    - name: Subir resultados de Allure (${{ matrix.browser_name }})
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: allure-${{ matrix.browser }}
+        name: allure-results-${{ matrix.browser }}
         path: target/allure-results
+        retention-days: 7
 
-    - name: Reporte Allure
+    # ─────────────────────────────────────────────────────────
+    # 7. Generar Reporte Allure (siempre se ejecuta)
+    # ─────────────────────────────────────────────────────────
+    - name: Generar Reporte Allure (${{ matrix.browser_name }})
       if: always()
       run: mvn allure:report
