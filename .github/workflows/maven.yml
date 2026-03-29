@@ -14,6 +14,9 @@ on:
   pull_request:
     branches: [ "main" ]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -35,29 +38,29 @@ jobs:
         distribution: 'temurin'
         cache: maven
 
-    # 3. Instalar navegadores (SIN drivers manuales)
+    # 3. Navegadores
     - name: Setup Chrome
       uses: browser-actions/setup-chrome@v1
 
     - name: Setup Firefox
       uses: browser-actions/setup-firefox@v1
 
-    # 4. Verificar versiones (debug útil)
+    # 4. Verificación
     - name: Verificar navegadores
       run: |
         google-chrome --version
         firefox --version
 
     # 5. Cache Maven
-    - name: Cache de paquetes de Maven
+    - name: Cache de Maven
       uses: actions/cache@v4
       with:
         path: ~/.m2
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-m2
 
-    # 6. Ejecutar pruebas
-    - name: Ejecutar Pruebas con Maven (Headless)
+    # 6. Tests
+    - name: Ejecutar Pruebas
       run: |
         mvn clean test \
           -DHEADLESS=true \
@@ -65,16 +68,14 @@ jobs:
           -DBROWSER=${{ matrix.browser }} \
           -DENV=qa
 
-    # 7. Allure results
-    - name: Subir resultados de Allure
+    # 7. Allure
+    - name: Subir resultados Allure
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: allure-results-${{ matrix.browser }}
         path: target/allure-results
-        retention-days: 7
 
-    # 8. Reporte Allure
     - name: Generar Reporte Allure
       if: always()
       run: mvn allure:report
