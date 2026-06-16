@@ -8,6 +8,8 @@ Este es un framework de automatización de pruebas BDD (Behavior-Driven Developm
 - **[TestNG](https://testng.org/)**: Motor de ejecución potente con soporte para paralelismo nativo.
 - **[Selenium 4](https://www.selenium.dev/)**: Automatización de interacciones web modernas.
 - **[Allure Report](https://docs.qameta.io/allure/)**: Reportes visuales con trazabilidad total de pasos.
+- **[SonarCloud](https://sonarcloud.io/)**: Análisis estático de código integrado para asegurar la calidad y seguridad.
+- **⚙️ Entorno Allure Automático**: Inyección de propiedades de entorno (`environment.properties`) directamente en el reporte Allure.
 - **📹 Grabación de Video Nativa (MP4)**: Captura de pantalla automática en formato MP4 incrustada directamente en el reporte Allure para cada escenario.
 - **🚀 Ejecución Paralela**: Configuración preparada para correr pruebas simultáneas en múltiples navegadores (Chrome, Firefox, Edge).
 - **🛠️ Arquitectura Limpia**: Uso de `PageFactory` y una clase base robusta (`Methods`) para minimizar la duplicación de código.
@@ -42,6 +44,12 @@ mvn clean test
 Una vez finalizada la ejecución, genera el reporte interactivo:
 ```bash
 mvn allure:serve
+```
+
+### 3. Análisis de Código con SonarCloud
+Para ejecutar el análisis de código estático y enviarlo a SonarCloud, asegúrate de tener configurada la variable de entorno `SONAR_TOKEN` y ejecuta:
+```bash
+mvn verify sonar:sonar
 ```
 
 ## 📂 Estructura del Framework
