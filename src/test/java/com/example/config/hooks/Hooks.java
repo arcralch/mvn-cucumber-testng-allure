@@ -10,6 +10,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Clase que gestiona los Hooks de Cucumber (@Before y @After).
@@ -50,7 +51,7 @@ public class Hooks {
         if (videoEnabled && !isHeadless) {
             try {
                 // Pequeño retraso para que el navegador se maximize/estabilice antes de grabar
-                Thread.sleep(1000);
+                TimeUnit.SECONDS.sleep(1);
                 VideoRecorder.startRecording(scenario.getName());
             } catch (Exception e) {
                 System.err.println("No se pudo iniciar la grabación de video: " + e.getMessage());

@@ -2,6 +2,7 @@ package com.example.config.methods;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
@@ -21,11 +22,11 @@ import io.qameta.allure.AllureLifecycle;
  * Proporciona una capa de abstracción sobre Selenium para interacciones robustas.
  */
 public abstract class Methods {
-    protected final int MAX_TIME_WAIT;
-    protected final int MAX_TIME_WAIT_MODAL;
-    protected final int MIN_TIME_WAIT;
-    protected final int MAX_TIME_LOAD_PAGE_TIMEOUT;
-    protected final int DEFAULT_SECONDS_WAIT_A;
+    private int MAX_TIME_WAIT;
+    private int MAX_TIME_WAIT_MODAL;
+    private int MIN_TIME_WAIT;
+    private int MAX_TIME_LOAD_PAGE_TIMEOUT;
+   private int DEFAULT_SECONDS_WAIT_A;
 
     protected WebDriver driver;
     protected AllureLifecycle allureLifecycle;
@@ -121,7 +122,7 @@ public abstract class Methods {
      */
     protected void wait(int seconds){
         try {
-            Thread.sleep(seconds * 1000L);
+            TimeUnit.SECONDS.sleep(1);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
