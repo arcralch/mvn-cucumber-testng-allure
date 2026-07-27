@@ -46,7 +46,7 @@ jobs:
       # 4. Ejecutar pruebas dentro del contenedor
       - name: Run tests
         run: |
-          # Ejecutar contenedor con nombre
+          # Ejecutar contenedor y esperar a que termine
           docker run --name allure-tests selenium-tests || true
           # Copiar resultados después de que el contenedor termine
           mkdir -p target/allure-results target/allure-report

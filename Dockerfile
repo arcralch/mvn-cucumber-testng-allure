@@ -80,5 +80,4 @@ WORKDIR /app
 
 # ── 7. Comando por defecto - Ejecuta pruebas y genera reporte Allure
 # Configura HEADLESS=true para ejecutar pruebas sin GUI
-# No usar mvn clean cuando se monta un volumen, solo mvn test
-CMD mvn test -DHEADLESS=true; mvn allure:report
+CMD mvn clean test verify -DHEADLESS=true
