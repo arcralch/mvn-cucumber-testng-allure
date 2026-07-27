@@ -73,18 +73,11 @@ RUN java -version && mvn --version \
     && firefox --version \
     && geckodriver --version | head -1
 
-# ── 6. Establecer JAVA_HOME para Java 17
-ENV JAVA_HOME=/usr/lib/jvm/temurin-17-jdk-amd64
-ENV PATH=$JAVA_HOME/bin:$PATH
-
-# ── 7. Copiar código del proyecto
+# ── 6. Copiar código del proyecto
 COPY . /app
 
 WORKDIR /app
 
-# ── 8. Descargar dependencias Maven ───────────────────────────────────
-RUN mvn dependency:go-offline -q || true
-
-# ── 9. Comando por defecto - Ejecuta pruebas y genera reporte Allure
+# ── 7. Comando por defecto - Ejecuta pruebas y genera reporte Allure
 # Configura HEADLESS=true para ejecutar pruebas sin GUI
 CMD mvn clean verify -DHEADLESS=true
