@@ -2,7 +2,7 @@
 # Dockerfile – Selenium + Cucumber + TestNG + Allure
 ########################################################################
 
-FROM maven:3.9-eclipse-temurin-11
+FROM maven:3.9-eclipse-temurin-17
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -73,14 +73,18 @@ RUN java -version && mvn --version \
     && firefox --version \
     && geckodriver --version | head -1
 
-# ── 6. Copiar código del proyecto
+# ── 6. Establecer JAVA_HOME para Java 17
+ENV JAVA_HOME=/usr/lib/jvm/temurin-17-jdk-amd64
+ENV PATH=$JAVA_HOME/bin:$PATH
+
+# ── 7. Copiar código del proyecto
 COPY . /app
 
 WORKDIR /app
 
-# ── 7. Descargar dependencias Maven ───────────────────────────────────
+# ── 8. Descargar dependencias Maven ───────────────────────────────────
 RUN mvn dependency:go-offline -q || true
 
-# ── 8. Comando por defecto - Ejecuta pruebas y genera reporte Allure
+# ── 9. Comando por defecto - Ejecuta pruebas y genera reporte Allure
 # Configura HEADLESS=true para ejecutar pruebas sin GUI
 CMD mvn clean verify -DHEADLESS=true
