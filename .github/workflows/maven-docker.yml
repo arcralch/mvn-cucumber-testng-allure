@@ -46,11 +46,7 @@ jobs:
       # 4. Ejecutar pruebas dentro del contenedor
       - name: Run tests
         run: |
-          docker run --rm selenium-tests
-          # Copiar resultados Allure después de ejecutar el contenedor
-          mkdir -p target/allure-results target/allure-report
-          docker cp selenium-tests:/app/target/allure-results/. ./target/allure-results/ 2>/dev/null || true
-          docker cp selenium-tests:/app/target/allure-report/. ./target/allure-report/ 2>/dev/null || true
+          docker run --rm -v $(pwd)/target:/app/target selenium-tests
 
       # 5. Generar reporte Allure usando allure-cli (opcional)
       - name: Generate Allure Report
