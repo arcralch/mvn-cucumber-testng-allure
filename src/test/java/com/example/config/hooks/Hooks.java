@@ -1,16 +1,20 @@
 package com.example.config.hooks;
 
-import com.example.config.utils.VideoRecorder;
-import io.cucumber.java.After;
-import io.cucumber.java.Before;
-import io.cucumber.java.Scenario;
-import io.qameta.allure.Allure;
-import com.example.config.driver.Driver;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.concurrent.TimeUnit;
+
+import org.openqa.selenium.WebDriver;
+
+import com.example.config.driver.Driver;
+import com.example.config.utils.VideoRecorder;
+
+import io.cucumber.java.After;
+import io.cucumber.java.Before;
+import io.cucumber.java.Scenario;
+import io.qameta.allure.Allure;
 
 /**
  * Clase que gestiona los Hooks de Cucumber (@Before y @After).
@@ -44,15 +48,15 @@ public class Hooks {
             Allure.label("browser", browser);
         }
 
-        // 3. Iniciar grabación de video SOLO en modo headed (NO headless)
+        // 3. Iniciar grabación de video (modo visible o headless)
         boolean videoEnabled = Boolean.parseBoolean(System.getProperty("VIDEO", "false"));
-        boolean isHeadless = Boolean.parseBoolean(System.getProperty("HEADLESS", "false"));
         
-        if (videoEnabled && !isHeadless) {
+        if (videoEnabled) {
             try {
-                // Pequeño retraso para que el navegador se maximize/estabilice antes de grabar
+                WebDriver webDriver = driver.getDriver();
+                // Pequeño retraso para que el navegador se estabilice antes de grabar
                 TimeUnit.SECONDS.sleep(1);
-                VideoRecorder.startRecording(scenario.getName());
+                VideoRecorder.startRecording(scenario.getName(), webDriver);
             } catch (Exception e) {
                 System.err.println("No se pudo iniciar la grabación de video: " + e.getMessage());
             }
@@ -90,8 +94,9 @@ public class Hooks {
      * Lee un archivo de video del disco y lo inyecta como adjunto en el reporte Allure.
      */
     private void attachVideo(File videoFile) {
+        String browser = System.getProperty("BROWSER");
         try (InputStream is = new FileInputStream(videoFile)) {
-            Allure.addAttachment("Video de ejecución", "video/mp4", is, ".mp4");
+            Allure.addAttachment("Video de ejecución "+browser.toLowerCase(), "video/mp4", is, ".mp4");
         } catch (IOException e) {
             System.err.println("No se pudo adjuntar el video al reporte Allure: " + e.getMessage());
         }

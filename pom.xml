@@ -23,8 +23,8 @@
     <junit-jupiter.version>5.10.0</junit-jupiter.version>
     <maven.compiler.plugin.version>3.11.0</maven.compiler.plugin.version>
     <maven.surefire.plugin.version>3.2.2</maven.surefire.plugin.version>
-    <maven.compiler.source.version>11</maven.compiler.source.version>
-    <maven.compiler.target.version>11</maven.compiler.target.version>
+    <maven.compiler.source.version>17</maven.compiler.source.version>
+    <maven.compiler.target.version>17</maven.compiler.target.version>
     
     <!-- Allure Environment Properties -->
     <allure.env.project>Cucumber-TestNG-Framework</allure.env.project>
