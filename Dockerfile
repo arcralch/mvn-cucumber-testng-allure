@@ -73,8 +73,8 @@ RUN java -version && mvn --version \
     && firefox --version \
     && geckodriver --version | head -1
 
-# ── 6. Clonar repositorio ────────────────────────────────────────────
-RUN git clone https://github.com/arcralch/mvn-cucumber-testng-allure.git -b main /app
+# ── 6. Copiar código del proyecto
+COPY . /app
 
 WORKDIR /app
 
@@ -82,4 +82,5 @@ WORKDIR /app
 RUN mvn dependency:go-offline -q || true
 
 # ── 8. Comando por defecto - Ejecuta pruebas y genera reporte Allure
-CMD mvn clean test && mvn allure:report
+# Configura HEADLESS=true para ejecutar pruebas sin GUI
+CMD mvn clean verify -DHEADLESS=true
