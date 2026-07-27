@@ -35,20 +35,39 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Construir imagen Docker
-      - name: Build Docker image
-        run: docker build -t selenium-tests .
+      # 2. Configurar JDK
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: 'maven'
 
-      # 3. Ejecutar pruebas dentro del contenedor
-      - name: Run tests
-        run: docker run --rm selenium-tests
+      # 3. Ejecutar pruebas con Maven
+      - name: Run tests with Maven
+        run: mvn clean test -B
 
-      # 4. Guardar reporte Allure (opcional)
+      # 4. Generar reporte Allure usando allure-cli
+      - name: Generate Allure Report
+        if: always()
+        run: |
+          mkdir -p target/allure-report
+          if [ -d "target/allure-results" ] && [ "$(ls -A target/allure-results)" ]; then
+            docker run --rm -v $(pwd)/target/allure-results:/app/target/allure-results -v $(pwd)/target/allure-report:/app/target/allure-report allure-framework/allure-cli:latest generate /app/target/allure-results -o /app/target/allure-report
+          fi
+
+      # 5. Upload Allure Results to Artifacts
       - name: Upload Allure Results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: allure-results
-          path: |
-            target/allure-results
-            target/allure-report
+          path: target/allure-results
+
+      # 6. Upload Allure Report to Artifacts
+      - name: Upload Allure Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: target/allure-report

@@ -81,5 +81,5 @@ WORKDIR /app
 # ── 7. Descargar dependencias Maven ───────────────────────────────────
 RUN mvn dependency:go-offline -q || true
 
-# ── 8. Comando por defecto ───────────────────────────────────────────
-CMD ["mvn", "clean", "test"]
+# ── 8. Comando por defecto - Ejecuta pruebas y genera reporte Allure
+CMD mvn clean test && mvn allure:report
