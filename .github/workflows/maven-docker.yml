@@ -61,7 +61,7 @@ jobs:
         run: |
           mkdir -p target/allure-report
           if [ -d "target/allure-results" ] && [ "$(ls -A target/allure-results)" ]; then
-            docker run --rm -v $(pwd)/target/allure-results:/app/target/allure-results -v $(pwd)/target/allure-report:/app/target/allure-report allurereport/allure-cli:latest generate /app/target/allure-results -o /app/target/allure-report
+            docker run --rm -v $(pwd)/target/allure-results:/app/target/allure-results -v $(pwd)/target/allure-report:/app/target/allure-report tobix/allure-cli:latest generate /app/target/allure-results -o /app/target/allure-report
           fi
 
       # 6. Upload Allure Results to Artifacts
