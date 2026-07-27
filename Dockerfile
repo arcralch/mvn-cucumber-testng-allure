@@ -2,7 +2,7 @@
 # Dockerfile – Selenium + Cucumber + TestNG + Allure
 ########################################################################
 
-FROM maven:3.9-eclipse-temurin-11
+FROM maven:3.9-eclipse-temurin-17
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -73,13 +73,12 @@ RUN java -version && mvn --version \
     && firefox --version \
     && geckodriver --version | head -1
 
-# ── 6. Clonar repositorio ────────────────────────────────────────────
-RUN git clone https://github.com/arcralch/mvn-cucumber-testng-allure.git -b main /app
+# ── 6. Copiar código del proyecto
+COPY . /app
 
 WORKDIR /app
 
-# ── 7. Descargar dependencias Maven ───────────────────────────────────
-RUN mvn dependency:go-offline -q || true
-
-# ── 8. Comando por defecto ───────────────────────────────────────────
-CMD ["mvn", "clean", "test"]
+# ── 7. Comando por defecto - Ejecuta pruebas y genera reporte Allure
+# Configura HEADLESS=true para ejecutar pruebas sin GUI
+# No usar mvn clean cuando se monta un volumen, solo mvn test
+CMD mvn test -DHEADLESS=true; mvn allure:report

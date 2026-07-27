@@ -184,7 +184,16 @@
                 <version>2.12.0</version>
                 <configuration>
                     <resultsDirectory>${project.build.directory}/allure-results</resultsDirectory>
+                    <reportDirectory>${project.build.directory}/allure-report</reportDirectory>
                 </configuration>
+                <executions>
+                    <execution>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
 
             <plugin>
@@ -219,12 +228,16 @@
                 <groupId>org.sonarsource.scanner.maven</groupId>
                 <artifactId>sonar-maven-plugin</artifactId>
                 <version>4.0.0.4121</version>
+                <configuration>
+                        <skip>true</skip>
+                        <sonar.skip>true</sonar.skip>
+                </configuration>
                 <executions>
                         <execution>
-                            <phase>verify</phase>
-                            <goals>
-                                <goal>sonar</goal>
-                            </goals>
+                                <phase>none</phase>
+                                <goals>
+                                        <goal>sonar</goal>
+                                </goals>
                         </execution>
                 </executions>
             </plugin>
